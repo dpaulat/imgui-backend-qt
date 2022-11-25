@@ -19,8 +19,6 @@
 
 #include "imgui_impl_qt.hpp"
 
-#include <format>
-
 #include <QApplication>
 #include <QClipboard>
 #include <QEnterEvent>
@@ -87,7 +85,7 @@ private:
    ImGui_ImplQt_Data* bd_;
 
    std::chrono::steady_clock::time_point time_ {};
-   bool                                  debugEnabled_ {true};
+   bool                                  debugEnabled_ {false};
    bool                                  wantUpdateMonitors_ {};
    QObject*                              focusedObject_ {};
    QObject*                              keyboardObject_ {};
@@ -388,15 +386,13 @@ void ImGuiQtBackend::HandleKeyPress(QObject* watched, QKeyEvent* event)
 
    if (debugEnabled_)
    {
-      ImGui::DebugLog(
-         std::format("{}: [{:#02x}, {:#02x}, {:#02x}, {:#010x}, {:#010x}]\n",
-                     event->type() == QEvent::Type::KeyPress ? "KP" : "KR",
-                     event->key(),
-                     event->nativeScanCode(),
-                     event->nativeVirtualKey(),
-                     static_cast<uint32_t>(event->modifiers()),
-                     event->nativeModifiers())
-            .c_str());
+      ImGui::DebugLog("%s: 0x%02x, 0x%02x, 0x%02x, 0x%08x, 0x%08x\n",
+                      event->type() == QEvent::Type::KeyPress ? "KP" : "KR",
+                      event->key(),
+                      event->nativeScanCode(),
+                      event->nativeVirtualKey(),
+                      static_cast<uint32_t>(event->modifiers()),
+                      event->nativeModifiers());
    }
 
    UpdateKeyModifiers(event->modifiers());
