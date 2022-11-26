@@ -19,6 +19,8 @@
 
 #include "imgui_impl_qt.hpp"
 
+#include <deque>
+
 #include <QApplication>
 #include <QClipboard>
 #include <QEnterEvent>
@@ -30,8 +32,9 @@
 #include <QWidget>
 #include <QWindow>
 
-// Remove if viewports flag is defined in ImGui
-#define ImGuiConfigFlags_ViewportsEnable 0
+#ifndef IMGUI_HAS_DOCK
+#   define ImGuiConfigFlags_ViewportsEnable 0
+#endif
 
 // Connect to internal ImGui debug log
 namespace ImGui
@@ -83,6 +86,8 @@ private:
 
    ImGuiIO&           io_;
    ImGui_ImplQt_Data* bd_;
+
+   std::deque<std::function<void()>> eventQueue_;
 
    std::chrono::steady_clock::time_point time_ {};
    bool                                  debugEnabled_ {false};
@@ -316,14 +321,20 @@ ImGuiQtBackend::ImGuiCursorToCursorShape(ImGuiMouseCursor cursor)
 
 void ImGuiQtBackend::UpdateKeyModifiers(Qt::KeyboardModifiers modifiers)
 {
-   io_.AddKeyEvent(ImGuiMod_Ctrl,
-                   (modifiers & Qt::KeyboardModifier::ControlModifier) != 0);
-   io_.AddKeyEvent(ImGuiMod_Shift,
-                   (modifiers & Qt::KeyboardModifier::ShiftModifier) != 0);
-   io_.AddKeyEvent(ImGuiMod_Alt,
-                   (modifiers & Qt::KeyboardModifier::AltModifier) != 0);
-   io_.AddKeyEvent(ImGuiMod_Super,
-                   (modifiers & Qt::KeyboardModifier::MetaModifier) != 0);
+   eventQueue_.push_back(
+      [=]()
+      {
+         io_.AddKeyEvent(ImGuiMod_Ctrl,
+                         (modifiers & Qt::KeyboardModifier::ControlModifier) !=
+                            0);
+         io_.AddKeyEvent(ImGuiMod_Shift,
+                         (modifiers & Qt::KeyboardModifier::ShiftModifier) !=
+                            0);
+         io_.AddKeyEvent(ImGuiMod_Alt,
+                         (modifiers & Qt::KeyboardModifier::AltModifier) != 0);
+         io_.AddKeyEvent(ImGuiMod_Super,
+                         (modifiers & Qt::KeyboardModifier::MetaModifier) != 0);
+      });
 }
 
 ImGuiMouseButton
@@ -355,9 +366,15 @@ void ImGuiQtBackend::HandleMouseButtonPress(QObject*     watched,
       return;
    }
 
-   mouseObject_ = watched;
-   io_.AddMouseButtonEvent(button,
-                           event->type() == QEvent::Type::MouseButtonPress);
+   mouseObject_           = watched;
+   QEvent::Type eventType = event->type();
+
+   eventQueue_.push_back(
+      [=]()
+      {
+         io_.AddMouseButtonEvent(button,
+                                 eventType == QEvent::Type::MouseButtonPress);
+      });
 }
 
 void ImGuiQtBackend::HandleWheel(QObject* watched, QWheelEvent* event)
@@ -369,14 +386,22 @@ void ImGuiQtBackend::HandleWheel(QObject* watched, QWheelEvent* event)
 
    if (!numPixels.isNull())
    {
-      io_.AddMouseWheelEvent(static_cast<float>(numPixels.x()),
-                             static_cast<float>(numPixels.y()));
+      eventQueue_.push_back(
+         [=]()
+         {
+            io_.AddMouseWheelEvent(static_cast<float>(numPixels.x()),
+                                   static_cast<float>(numPixels.y()));
+         });
    }
    else if (!numDegrees.isNull())
    {
-      QPointF numSteps = numDegrees / 15.0f;
-      io_.AddMouseWheelEvent(static_cast<float>(numSteps.x()),
-                             static_cast<float>(numSteps.y()));
+      eventQueue_.push_back(
+         [=]()
+         {
+            QPointF numSteps = numDegrees / 15.0f;
+            io_.AddMouseWheelEvent(static_cast<float>(numSteps.x()),
+                                   static_cast<float>(numSteps.y()));
+         });
    }
 }
 
@@ -399,14 +424,21 @@ void ImGuiQtBackend::HandleKeyPress(QObject* watched, QKeyEvent* event)
 
    ImGuiKey imguiKey =
       KeyToImGuiKey(static_cast<Qt::Key>(event->key()), event->modifiers());
-   io_.AddKeyEvent(imguiKey, event->type() == QEvent::Type::KeyPress);
    io_.SetKeyEventNativeData(
       imguiKey, event->nativeVirtualKey(), event->nativeScanCode());
 
-   if (event->type() == QEvent::Type::KeyPress && event->text().size() > 0)
-   {
-      io_.AddInputCharactersUTF8(event->text().toStdString().c_str());
-   }
+   QEvent::Type eventType = event->type();
+   std::string  eventText = event->text().toStdString();
+
+   eventQueue_.push_back(
+      [=]()
+      {
+         io_.AddKeyEvent(imguiKey, eventType == QEvent::Type::KeyPress);
+         if (eventType == QEvent::Type::KeyPress && eventText.size() > 0)
+         {
+            io_.AddInputCharactersUTF8(eventText.c_str());
+         }
+      });
 }
 
 void ImGuiQtBackend::HandleFocus(QObject* watched, QFocusEvent* event)
@@ -414,8 +446,11 @@ void ImGuiQtBackend::HandleFocus(QObject* watched, QFocusEvent* event)
    if (event->type() == QEvent::Type::FocusOut && focusedObject_ != watched)
       return;
 
-   io_.AddFocusEvent(event->type() == QEvent::Type::FocusIn);
    focusedObject_ = event->type() == QEvent::Type::FocusIn ? watched : nullptr;
+   QEvent::Type eventType = event->type();
+
+   eventQueue_.push_back(
+      [=]() { io_.AddFocusEvent(eventType == QEvent::Type::FocusIn); });
 }
 
 void ImGuiQtBackend::HandleMouseMove(QObject* watched, QMouseEvent* event)
@@ -433,7 +468,9 @@ void ImGuiQtBackend::HandleMouseMove(QObject* watched, QMouseEvent* event)
 
    mouseObject_            = watched;
    lastValidMousePosition_ = ImVec2(position.x(), position.y());
-   io_.AddMousePosEvent(position.x(), position.y());
+
+   eventQueue_.push_back([=]()
+                         { io_.AddMousePosEvent(position.x(), position.y()); });
 }
 
 void ImGuiQtBackend::HandleEnter(QObject* watched, QEnterEvent* event)
@@ -451,7 +488,9 @@ void ImGuiQtBackend::HandleEnter(QObject* watched, QEnterEvent* event)
 
    mouseObject_            = watched;
    lastValidMousePosition_ = ImVec2(position.x(), position.y());
-   io_.AddMousePosEvent(position.x(), position.y());
+
+   eventQueue_.push_back([=]()
+                         { io_.AddMousePosEvent(position.x(), position.y()); });
 }
 
 void ImGuiQtBackend::HandleLeave(QObject* watched, QEvent* /* event */)
@@ -460,7 +499,9 @@ void ImGuiQtBackend::HandleLeave(QObject* watched, QEvent* /* event */)
    {
       mouseObject_            = nullptr;
       lastValidMousePosition_ = io_.MousePos;
-      io_.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
+
+      eventQueue_.push_back([=]()
+                            { io_.AddMousePosEvent(-FLT_MAX, -FLT_MAX); });
    }
 }
 
@@ -714,6 +755,19 @@ void ImGuiQtBackend::NewFrame(T* object)
          std::chrono::duration<float>(currentTime - time_).count() :
          (float) (1.0f / 60.0f);
    time_ = currentTime;
+
+   // If there are events in the queue, trigger an additional update
+   if (!eventQueue_.empty() && object->isWidgetType())
+   {
+      reinterpret_cast<QWidget*>(object)->update();
+   }
+
+   // Process events
+   while (!eventQueue_.empty())
+   {
+      eventQueue_.front()();
+      eventQueue_.pop_front();
+   }
 
    UpdateMouseData();
    UpdateMouseCursor();
