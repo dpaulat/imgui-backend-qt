@@ -90,7 +90,7 @@ private:
    std::deque<std::function<void()>> eventQueue_;
 
    std::chrono::steady_clock::time_point time_ {};
-   bool                                  debugEnabled_ {false};
+   bool                                  debugEnabled_ {};
    bool                                  wantUpdateMonitors_ {};
    QObject*                              focusedObject_ {};
    QObject*                              keyboardObject_ {};
@@ -521,6 +521,7 @@ bool ImGui_ImplQt_Init()
    io.BackendPlatformUserData = reinterpret_cast<void*>(bd);
    io.BackendPlatformName     = "imgui_impl_qt";
 
+   io.BackendUsingLegacyKeyArrays = 0; // Backend uses new key event processing
    io.BackendFlags |=
       ImGuiBackendFlags_HasMouseCursors; // We can honor GetMouseCursor() values
                                          // (optional)
