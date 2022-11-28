@@ -735,7 +735,11 @@ template<class T>
 static void ImGui_ImplQt_UnregisterObject(T* object)
 {
    ImGui_ImplQt_Data* bd = ImGui_ImplQt_GetBackendData();
-   IM_ASSERT(bd != nullptr && "Did you call ImGui_ImplQt_Init()?");
+   if (bd == nullptr)
+   {
+      // Ignore when context has already been destroyed
+      return;
+   }
 
    // Uninstall widget callbacks
    object->removeEventFilter(bd->backend_.get());
