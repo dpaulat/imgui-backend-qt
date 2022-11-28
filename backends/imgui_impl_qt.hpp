@@ -31,3 +31,5 @@ IMGUI_IMPL_API void ImGui_ImplQt_NewFrame(QWindow* window);
 
 IMGUI_IMPL_API void ImGui_ImplQt_RegisterWidget(QWidget* widget);
 IMGUI_IMPL_API void ImGui_ImplQt_RegisterWindow(QWindow* window);
+IMGUI_IMPL_API void ImGui_ImplQt_UnregisterWidget(QWidget* widget);
+IMGUI_IMPL_API void ImGui_ImplQt_UnregisterWindow(QWindow* window);
