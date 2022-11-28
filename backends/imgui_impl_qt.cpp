@@ -116,7 +116,7 @@ ImGuiQtBackend::ImGuiQtBackend(ImGuiIO& io, ImGui_ImplQt_Data* bd) :
 static ImGui_ImplQt_Data* ImGui_ImplQt_GetBackendData()
 {
    return ImGui::GetCurrentContext() ?
-             reinterpret_cast<ImGui_ImplQt_Data*>(
+             static_cast<ImGui_ImplQt_Data*>(
                 ImGui::GetIO().BackendPlatformUserData) :
              nullptr;
 }
@@ -124,7 +124,7 @@ static ImGui_ImplQt_Data* ImGui_ImplQt_GetBackendData()
 // Functions
 static const char* ImGui_ImplQt_GetClipboardText(void* userData)
 {
-   ImGui_ImplQt_Data* bd = reinterpret_cast<ImGui_ImplQt_Data*>(userData);
+   ImGui_ImplQt_Data* bd = static_cast<ImGui_ImplQt_Data*>(userData);
    return bd->clipboard_.c_str();
 }
 
@@ -518,7 +518,7 @@ bool ImGui_ImplQt_Init()
 
    // Setup backend capabilities flags
    ImGui_ImplQt_Data* bd      = IM_NEW(ImGui_ImplQt_Data)();
-   io.BackendPlatformUserData = reinterpret_cast<void*>(bd);
+   io.BackendPlatformUserData = static_cast<void*>(bd);
    io.BackendPlatformName     = "imgui_impl_qt";
 
    io.BackendUsingLegacyKeyArrays = 0; // Backend uses new key event processing
