@@ -535,6 +535,7 @@ bool ImGui_ImplQt_Init()
    bd->clipboard_        = QGuiApplication::clipboard()->text().toStdString();
    io.SetClipboardTextFn = ImGui_ImplQt_SetClipboardText;
    io.GetClipboardTextFn = ImGui_ImplQt_GetClipboardText;
+   io.ClipboardUserData  = bd;
    QObject::connect(QGuiApplication::clipboard(),
                     &QClipboard::dataChanged,
                     bd->backend_.get(),
