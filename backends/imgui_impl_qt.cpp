@@ -785,9 +785,10 @@ void ImGuiQtBackend::NewFrame(T* object)
 {
    // Setup display size (every frame to accommodate for window resizing)
    QSize widgetSize            = object->size();
+   float pixelRatio            = static_cast<float>(object->devicePixelRatio());
    io_.DisplaySize             = ImVec2(static_cast<float>(widgetSize.width()),
                             static_cast<float>(widgetSize.height()));
-   io_.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+   io_.DisplayFramebufferScale = ImVec2(pixelRatio, pixelRatio);
 
    if (wantUpdateMonitors_)
    {
