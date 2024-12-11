@@ -124,13 +124,13 @@ static ImGui_ImplQt_Data* ImGui_ImplQt_GetBackendData()
 }
 
 // Functions
-static const char* ImGui_ImplQt_GetClipboardText(void* userData)
+static const char* ImGui_ImplQt_GetClipboardText(ImGuiContext* /* ctx */)
 {
-   ImGui_ImplQt_Data* bd = static_cast<ImGui_ImplQt_Data*>(userData);
+   ImGui_ImplQt_Data* bd = ImGui_ImplQt_GetBackendData();
    return bd->clipboard_.c_str();
 }
 
-static void ImGui_ImplQt_SetClipboardText(void* /* userData */,
+static void ImGui_ImplQt_SetClipboardText(ImGuiContext* /* ctx */,
                                           const char* text)
 {
    QClipboard* clipboard = QGuiApplication::clipboard();
@@ -524,7 +524,6 @@ bool ImGui_ImplQt_Init()
    io.BackendPlatformUserData = static_cast<void*>(bd);
    io.BackendPlatformName     = "imgui_impl_qt";
 
-   io.BackendUsingLegacyKeyArrays = 0; // Backend uses new key event processing
    io.BackendFlags |=
       ImGuiBackendFlags_HasMouseCursors; // We can honor GetMouseCursor() values
                                          // (optional)
@@ -532,10 +531,11 @@ bool ImGui_ImplQt_Init()
    bd->backend_ = std::make_unique<ImGuiQtBackend>(io, bd);
 
    // Configure clipboard
-   bd->clipboard_        = QGuiApplication::clipboard()->text().toStdString();
-   io.SetClipboardTextFn = ImGui_ImplQt_SetClipboardText;
-   io.GetClipboardTextFn = ImGui_ImplQt_GetClipboardText;
-   io.ClipboardUserData  = bd;
+   ImGuiPlatformIO& pio = ImGui::GetPlatformIO();
+   bd->clipboard_       = QGuiApplication::clipboard()->text().toStdString();
+   pio.Platform_SetClipboardTextFn = ImGui_ImplQt_SetClipboardText;
+   pio.Platform_GetClipboardTextFn = ImGui_ImplQt_GetClipboardText;
+   pio.Platform_ClipboardUserData  = bd;
    QObject::connect(QGuiApplication::clipboard(),
                     &QClipboard::dataChanged,
                     bd->backend_.get(),
